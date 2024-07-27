@@ -1,0 +1,92 @@
+from pytube import Playlist, YouTube  # Import Playlist and YouTube classes from the pytube library
+from pytube.exceptions import AgeRestrictedError  # Import AgeRestrictedError to handle age-restricted videos
+from http.client import IncompleteRead  # Import IncompleteRead to handle incomplete read errors during downloads
+import sys  # Import sys module to manage system-specific parameters and functions
+
+# Function to show the progress percentage during download
+def show_progress(stream, chunk, bytes_remaining):
+    total_size = stream.filesize  # Get the total size of the video file
+    bytes_downloaded = total_size - bytes_remaining  # Calculate how many bytes have been downloaded so far
+    percentage_of_completion = bytes_downloaded / total_size * 100  # Calculate the download percentage
+    sys.stdout.write(f"\rDownloading... {percentage_of_completion:.2f}%")  # Print the download percentage on the same line
+    sys.stdout.flush()  # Make sure the printed text is displayed immediately
+
+# Function to download a single video
+def download_video(video_url):
+    try:  # Start a block to try downloading the video
+        yt = YouTube(video_url, on_progress_callback=show_progress)  # Create a YouTube object with the progress callback
+        print(f"{yt.title} is Downloading...")  # Print the title of the video
+
+        # Try to get the video stream with itag 22 (usually 720p resolution)
+        stream = yt.streams.get_by_itag(22)
+
+        # If itag 22 is not available, get the highest resolution progressive stream
+        if not stream:  # If no stream with itag 22 is found
+            stream = yt.streams.filter(progressive=True).order_by('resolution').desc().first()  # Get the best available stream
+
+        if stream:  # If a stream is found
+            try:
+                stream.download()  # Download the video stream
+                print(f"\n{yt.title} has been downloaded successfully.")  # Print a success message
+            except IncompleteRead:  # If an incomplete read error occurs
+                print("\nDownload interrupted. Trying to resume...")  # Print a message and try to resume the download
+                stream.download()  # Attempt to resume the download
+        else:  # If no stream is found
+            print("\nNo stream available for this video.")  # Print an error message
+    except AgeRestrictedError:  # If the video is age-restricted
+        print("The video is age-restricted and cannot be downloaded without logging in.")  # Print an error message
+    except IncompleteRead as e:  # Catch incomplete read errors
+        print("An error occurred while downloading the video due to incomplete read:", str(e))  # Print an error message
+    except Exception as e:  # Catch any other errors
+        print("An error occurred while downloading the video:", str(e))  # Print a generic error message
+
+# Function to download videos from a playlist
+def download_playlist(playlist_url):
+    try:  # Start a block to try downloading the playlist
+        p = Playlist(playlist_url)  # Create a Playlist object
+        print('Number of videos in playlist:', len(p.video_urls))  # Print the number of videos in the playlist
+
+        start_index = int(input('Enter the start index of the range: '))  # Ask for the start index of videos to download
+        end_index = int(input('Enter the end index of the range: '))  # Ask for the end index of videos to download
+
+        for i in range(start_index - 1, end_index):  # Loop through the selected range of videos
+            yt = YouTube(p.video_urls[i], on_progress_callback=show_progress)  # Create a YouTube object with the progress callback
+            print(f"\nDownloading video {i+1} of {end_index - start_index + 1}...")  # Print the download progress
+            print(f"{yt.title} is Downloading...")  # Print the title of the video
+
+            # Try to get the video stream with itag 22 (usually 720p resolution)
+            stream = yt.streams.get_by_itag(22)
+
+            # If itag 22 is not available, get the highest resolution progressive stream
+            if not stream:  # If no stream with itag 22 is found
+                stream = yt.streams.filter(progressive=True).order_by('resolution').desc().first()  # Get the best available stream
+
+            if stream:  # If a stream is found
+                try:
+                    stream.download()  # Download the video stream
+                    print(f"\n{yt.title} has been downloaded successfully.")  # Print a success message
+                except IncompleteRead:  # If an incomplete read error occurs
+                    print("\nDownload interrupted. Trying to resume...")  # Print a message and try to resume the download
+                    stream.download()  # Attempt to resume the download
+            else:  # If no stream is found
+                print("\nNo stream available for this video.")  # Print an error message
+    except AgeRestrictedError:  # If a video in the playlist is age-restricted
+        print("One of the videos in the playlist is age-restricted and cannot be downloaded without logging in.")  # Print an error message
+    except IncompleteRead as e:  # Catch incomplete read errors
+        print("An error occurred while downloading a video due to incomplete read:", str(e))  # Print an error message
+    except Exception as e:  # Catch any other errors
+        print("An error occurred:", str(e))  # Print a generic error message
+
+# Main block to execute the script
+if __name__ == "__main__":
+    # Ask the user to choose between downloading a single video or a playlist
+    choice = input("Do you want to download a single video or a playlist? (Enter 'video' or 'playlist'): ").strip().lower()
+
+    if choice == 'video':  # If the user chooses to download a single video
+        video_url = input("Enter the video URL: ").strip()  # Ask for the video URL
+        download_video(video_url)  # Call the function to download the single video
+    elif choice == 'playlist':  # If the user chooses to download a playlist
+        playlist_url = input("Enter the playlist URL: ").strip()  # Ask for the playlist URL
+        download_playlist(playlist_url)  # Call the function to download videos from the playlist
+    else:  # If the user enters an invalid choice
+        print("Invalid choice. Please enter 'video' or 'playlist'.")  # Print an error message
